@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <item name="adapter_position" type="id"></item>
+    <item name="sync_enabled" type="id"></item>
+    <item name="model_object" type="id"></item>
+
+</resources>

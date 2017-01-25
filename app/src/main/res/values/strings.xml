@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">CrabApp</string>
+    <string name="title_activity_view_crab">ViewCrabActivity</string>
+    <string name="title_activity_view_albums">ViewAlbumsActivity</string>
+    <string name="title_activity_view_crabs">ViewCrabsActivity</string>
+
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
+
+    <string name="sample_title">Sample Title</string>
+</resources>
