@@ -52,6 +52,11 @@ public class AlbumAdapter extends CursorRecyclerViewAdapter<AlbumAdapter.AlbumVi
                                   + calendar.get(Calendar.MINUTE));
 
         // button sync
+        if(crabupdate.getServerIdCrabUpdate() < 1){
+            viewHolder.buttonSync.setImageResource(R.drawable.sync_64_green);
+        }else{
+            viewHolder.buttonSync.setImageResource(R.drawable.sync_64_gray);
+        }
 
 //        viewHolder.tvNumUpdates.setText(String.valueOf(crab.getNumOfUpdates()));
 //
@@ -61,10 +66,10 @@ public class AlbumAdapter extends CursorRecyclerViewAdapter<AlbumAdapter.AlbumVi
 //            viewHolder.tvLastUpdate.setText("No entries yet.");
 //        }
 
-        if(viewWidth > 0) {
-            Bitmap bitmap = decodeSampledBitmapFromPath(crabupdate.getPath(), viewWidth, -1);
-            viewHolder.ivImage.setImageBitmap(bitmap);
-        }
+//        if(viewWidth > 0) {
+//            Bitmap bitmap = decodeSampledBitmapFromPath(crabupdate.getPath(), viewWidth, -1);
+//            viewHolder.ivImage.setImageBitmap(bitmap);
+//        }
 
         viewHolder.container.setTag(crabupdate.getId());
 
@@ -84,18 +89,18 @@ public class AlbumAdapter extends CursorRecyclerViewAdapter<AlbumAdapter.AlbumVi
         final View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.layout_update_item, parent, false);
         view.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        ViewTreeObserver viewTreeObserver = view.getViewTreeObserver();
-        if (viewTreeObserver.isAlive()) {
-            viewTreeObserver.addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
-                @Override
-                public void onGlobalLayout() {
-                    view.getViewTreeObserver().removeOnGlobalLayoutListener(this);
-                    viewWidth = view.getWidth();
-
-                    notifyDataSetChanged();
-                }
-            });
-        }
+//        ViewTreeObserver viewTreeObserver = view.getViewTreeObserver();
+//        if (viewTreeObserver.isAlive()) {
+//            viewTreeObserver.addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+//                @Override
+//                public void onGlobalLayout() {
+//                    view.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+//                    viewWidth = view.getWidth();
+//
+//                    notifyDataSetChanged();
+//                }
+//            });
+//        }
 
         return new AlbumViewHolder(view);
     }
@@ -104,13 +109,16 @@ public class AlbumAdapter extends CursorRecyclerViewAdapter<AlbumAdapter.AlbumVi
         CrabUpdate crabupdate = new CrabUpdate();
         long id = cursor.getLong(cursor.getColumnIndex(DatabaseContract.CrabUpdate._ID));
         crabupdate.setId(id);
-        crabupdate.setPath(cursor.getString(cursor.getColumnIndex(DatabaseContract.CrabUpdate.COLUMN_PATH)));
+//        crabupdate.setPath(cursor.getString(cursor.getColumnIndex(DatabaseContract.CrabUpdate.COLUMN_PATH)));
         crabupdate.setDate(new Date(cursor.getLong(cursor.getColumnIndex(DatabaseContract.CrabUpdate.COLUMN_DATE))));
 
         String type = cursor.getString(cursor.getColumnIndex(DatabaseContract.CrabUpdate.COLUMN_CRABTYPE));
         crabupdate.setCrabType(CrabUpdate.CrabType.valueOf(type));
 
+        crabupdate.setServerIdCrabUpdate(cursor.getLong(cursor.getColumnIndex(DatabaseContract.CrabUpdate.COLUMN_SERVERIDCRABUPDATE)));
+
         crabupdate.setResult(cursor.getString(cursor.getColumnIndex(DatabaseContract.CrabUpdate.COLUMN_RESULT)));
+
 
 //        crab.setTag(cursor.getString(cursor.getColumnIndex(DatabaseContract.Crab.COLUMN_TAG)));
 //        crab.setStatus(cursor.getString(cursor.getColumnIndex(DatabaseContract.Crab.COLUMN_STATUS)));
@@ -134,7 +142,7 @@ public class AlbumAdapter extends CursorRecyclerViewAdapter<AlbumAdapter.AlbumVi
         TextView tvType;
         TextView tvResult;
         ImageButton buttonSync;
-        ImageView ivImage;
+//        ImageView ivImage;
 //        TextView tvStatus;
 //        TextView tvLastUpdate;
 //        TextView tvNumUpdates;
@@ -148,7 +156,7 @@ public class AlbumAdapter extends CursorRecyclerViewAdapter<AlbumAdapter.AlbumVi
             tvType = (TextView) itemView.findViewById(R.id.tv_type);
             tvResult = (TextView) itemView.findViewById(R.id.tv_result);
             buttonSync = (ImageButton) itemView.findViewById(R.id.button_sync);
-            ivImage = (ImageView) itemView.findViewById(R.id.iv_image);
+//            ivImage = (ImageView) itemView.findViewById(R.id.iv_image);
 
 //            tvLastUpdate = (TextView) itemView.findViewById(R.id.tv_last_update);
 //            tvNumUpdates = (TextView) itemView.findViewById(R.id.tv_entries);

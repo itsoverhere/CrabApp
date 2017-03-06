@@ -13,6 +13,7 @@ import android.support.design.widget.Snackbar;
 import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.GridLayoutManager;
+import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
@@ -91,8 +92,9 @@ public class ViewCrabsActivity extends AppCompatActivity {
             }
         });
 
-        GridLayoutManager gridLayoutManager = new GridLayoutManager(getBaseContext(), 2);
-        rvAlbums.setLayoutManager(gridLayoutManager);
+        // GridLayoutManager gridLayoutManager = new GridLayoutManager(getBaseContext(), 2);
+        LinearLayoutManager linearLayoutManager = new LinearLayoutManager(getBaseContext(), LinearLayoutManager.VERTICAL, true);
+        rvAlbums.setLayoutManager(linearLayoutManager);
         rvAlbums.setAdapter(albumAdapter);
     }
 
@@ -162,21 +164,26 @@ public class ViewCrabsActivity extends AppCompatActivity {
             super.onPostExecute(s);
             ArrayList<CrabUpdate> crabUpdateResults = new ArrayList<>();
             JSONArray crabResultsJson = null;
-            try {
-                crabResultsJson = new JSONArray(s);
-                for(int i=0; crabResultsJson!=null && i<crabResultsJson.length(); i++){
-                    CrabUpdate c = new CrabUpdate();
-                    JSONObject jsonObject = crabResultsJson.getJSONObject(i);
-                    c.setResult(jsonObject.getString(DatabaseContract.CrabUpdate.COLUMN_RESULT));
-                    c.setId(jsonObject.getInt(DatabaseContract.CrabUpdate.PHONEIDCRABUPDATE));
-                    crabUpdateResults.add(c);
-                    //crabResults.add(c);
+            if(s != null) {
+                try {
+                    crabResultsJson = new JSONArray(s);
+                    for (int i = 0; crabResultsJson != null && i < crabResultsJson.length(); i++) {
+                        CrabUpdate c = new CrabUpdate();
+                        JSONObject jsonObject = crabResultsJson.getJSONObject(i);
+                        c.setResult(jsonObject.getString(DatabaseContract.CrabUpdate.COLUMN_RESULT));
+                        c.setId(jsonObject.getInt(DatabaseContract.CrabUpdate.PHONEIDCRABUPDATE));
+                        crabUpdateResults.add(c);
+                        //crabResults.add(c);
+                    }
+                } catch (JSONException e) {
+                    e.printStackTrace();
                 }
-            } catch (JSONException e) {
-                e.printStackTrace();
-            }
 
-            updateCrabResults(crabUpdateResults);
+                updateCrabResults(crabUpdateResults);
+            }else{
+                Snackbar.make(rvAlbums, "No updates.", Snackbar.LENGTH_SHORT).show();
+                swipeRefreshLayout.setRefreshing(false);
+            }
         }
     }
 

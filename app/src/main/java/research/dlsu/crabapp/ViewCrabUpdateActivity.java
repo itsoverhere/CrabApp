@@ -261,15 +261,14 @@ public class ViewCrabUpdateActivity extends AppCompatActivity {
             try {
                 Long serverIdCrabUpdate = Long.parseLong(s);
                 if(new DatabaseHelper(getBaseContext()).updateServerIdCrabUpdate(crabUpdate.getId(), serverIdCrabUpdate)){
-                    Snackbar.make(ivImage, "Success! Update " + crabUpdate.getId() + " has been synced.", Snackbar.LENGTH_SHORT);
+                    Snackbar.make(ivImage, "Success! Update " + crabUpdate.getId() + " has been synced.", Snackbar.LENGTH_SHORT).show();
                     progressDialog.dismiss();
                     setButtonSync(true);
                 }else{
-                    Snackbar.make(ivImage, "Something went wrong during local database update, please try again.", Snackbar.LENGTH_SHORT);
+                    Snackbar.make(ivImage, "Something went wrong during local database update, please try again.", Snackbar.LENGTH_SHORT).show();
                 }
             }catch(NumberFormatException ex){
-                Snackbar.make(ivImage, "Some" +
-                        "}thing went wrong. Please try again.", Snackbar.LENGTH_SHORT);
+                Snackbar.make(ivImage, "Something went wrong. Please try again.", Snackbar.LENGTH_SHORT).show();
             }
         }
     }

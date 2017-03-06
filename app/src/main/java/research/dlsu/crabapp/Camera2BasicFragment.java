@@ -18,11 +18,15 @@ package research.dlsu.crabapp;
 import android.Manifest;
 import android.app.Activity;
 import android.app.Dialog;
+import android.app.ProgressDialog;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
 import android.graphics.Matrix;
 import android.graphics.Point;
@@ -40,10 +44,14 @@ import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
 import android.media.ImageReader;
+import android.net.ConnectivityManager;
+import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.provider.ContactsContract;
 import android.support.annotation.NonNull;
 import android.support.design.widget.Snackbar;
 import android.support.v13.app.FragmentCompat;
@@ -63,6 +71,7 @@ import android.widget.ImageView;
 import android.widget.Toast;
 import android.widget.ToggleButton;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -77,6 +86,13 @@ import java.util.Date;
 import java.util.List;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+
+import okhttp3.MediaType;
+import okhttp3.MultipartBody;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
 public class Camera2BasicFragment extends Fragment
         implements View.OnClickListener, FragmentCompat.OnRequestPermissionsResultCallback {
@@ -255,6 +271,7 @@ public class Camera2BasicFragment extends Fragment
      * This is the output file for our picture.
      */
     private File mFile;
+    private CrabUpdate cu = null; // CrabUpdate of the crab currently being photographed
 
     /**
      * This a callback object for the {@link ImageReader}. "onImageAvailable" will be called when a
@@ -879,25 +896,34 @@ public class Camera2BasicFragment extends Fragment
         lockFocus();
     }
 
-    public void saveEntryToDatabase(){
+    public CrabUpdate saveEntryToDatabase(){
         Log.i(TAG, "Saving entries to database...");
 
         CrabUpdate.CrabType crabType = toggleCrabType.isChecked() ? CrabUpdate.CrabType.SCYLLA_SERRATA : CrabUpdate.CrabType.SCYLlA_TRANQUEBARICA;
 
-        ContentValues contentValues = new ContentValues();
-        contentValues.put(DatabaseContract.CrabUpdate.COLUMN_DATE, Calendar.getInstance().getTimeInMillis());
-        contentValues.put(DatabaseContract.CrabUpdate.COLUMN_PATH, mFile.getAbsolutePath());
-        contentValues.put(DatabaseContract.CrabUpdate.COLUMN_CRABTYPE, crabType.name());
+        CrabUpdate cu = new CrabUpdate();
+        cu.setDate(new java.sql.Date(Calendar.getInstance().getTimeInMillis()));
+        cu.setPath(mFile.getAbsolutePath());
+        cu.setCrabType(crabType);
 
-        getActivity().getContentResolver().insert(
+        ContentValues contentValues = new ContentValues();
+        contentValues.put(DatabaseContract.CrabUpdate.COLUMN_DATE, cu.getDate().getTime());
+        contentValues.put(DatabaseContract.CrabUpdate.COLUMN_PATH, cu.getPath());
+        contentValues.put(DatabaseContract.CrabUpdate.COLUMN_CRABTYPE, cu.getCrabType().name());
+
+        Uri uri = getActivity().getContentResolver().insert(
                 DatabaseContract.CrabUpdate.CONTENT_URI,
                 contentValues
         );
+
+        cu.setId(DatabaseContract.CrabUpdate.getCrabUpdateIdAsSegment(uri, 1));
 
         Snackbar.make(mTextureView, "Image has been saved", Snackbar.LENGTH_SHORT)
                 .show();
 
         currentlyProcessingPicture = false;
+
+        return cu;
     }
 
     /**
@@ -968,7 +994,7 @@ public class Camera2BasicFragment extends Fragment
                                                @NonNull TotalCaptureResult result) {
                     showToast("Saved: " + mFile);
                     Log.d(TAG, mFile.toString());
-                    saveEntryToDatabase();
+                    cu = saveEntryToDatabase();
                     unlockFocus();
                 }
             };
@@ -979,6 +1005,8 @@ public class Camera2BasicFragment extends Fragment
             e.printStackTrace();
         }
     }
+
+
 
     /**
      * Retrieves the JPEG orientation from the specified screen rotation.
@@ -1042,10 +1070,23 @@ public class Camera2BasicFragment extends Fragment
         }
     }
 
+    public void sendToServer(CrabUpdate cu){
+        if(isNetworkAvailable(getActivity())){
+            new SubmitCrabUpdateToServerTask().execute(cu);
+        }else{
+            Snackbar.make(buttonTakePicture, "Send this image later.", Snackbar.LENGTH_SHORT).show();
+        }
+    }
+
+    public boolean isNetworkAvailable(final Context context) {
+        final ConnectivityManager connectivityManager = ((ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE));
+        return connectivityManager.getActiveNetworkInfo() != null && connectivityManager.getActiveNetworkInfo().isConnected();
+    }
+
     /**
      * Saves a JPEG {@link Image} into the specified {@link File}.
      */
-    private static class ImageSaver implements Runnable {
+    private class ImageSaver implements Runnable {
 
         /**
          * The JPEG image
@@ -1071,6 +1112,9 @@ public class Camera2BasicFragment extends Fragment
             try {
                 output = new FileOutputStream(mFile);
                 output.write(bytes);
+                // THIS IS WHERE THE ENTRY SHOULD BE SUBMITTED
+                sendToServer(cu);
+
             } catch (IOException e) {
                 e.printStackTrace();
             } finally {
@@ -1180,5 +1224,101 @@ public class Camera2BasicFragment extends Fragment
 
     public interface Camera2BasicFragmentListener{
         public void onButtonGalleryClick();
+    }
+
+    public class SubmitCrabUpdateToServerTask extends AsyncTask<CrabUpdate, Void, String> {
+
+        CrabUpdate crabUpdate;
+
+        @Override
+        protected String doInBackground(CrabUpdate... params) {
+            publishProgress();
+
+            Log.i(TAG, "now sending to server");
+
+            crabUpdate = params[0];
+
+            SharedPreferences sp = getActivity().getSharedPreferences(SharedPreferencesFile.SP_NAME, getActivity().MODE_PRIVATE);
+            String serialNumber = sp.getString(SharedPreferencesFile.ATTRIBUTE_SERIALNUMBER, null);
+
+            MediaType MEDIA_TYPE_JPEG = MediaType.parse("image/jpeg");
+
+            OkHttpClient okHttpClient
+                    = new OkHttpClient.Builder()
+                    .connectTimeout(100, TimeUnit.SECONDS)
+                    .build();
+
+            Bitmap bitmap = null;
+            bitmap = BitmapFactory.decodeFile(crabUpdate.getPath());
+
+            ByteArrayOutputStream stream = new ByteArrayOutputStream(); // /storage/emulated/0/Crab/20170131_154722_CRAB__1-799053892.jpg
+
+            if(bitmap != null) {
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 100, stream);
+                byte[] byteArray = stream.toByteArray();
+
+                RequestBody requestBody =
+                        new MultipartBody.Builder()
+                                .setType(MultipartBody.FORM)
+                                .addFormDataPart(DatabaseContract.CrabUpdate.EXTRA_ID, String.valueOf(crabUpdate.getId()))
+                                //                        .addFormDataPart(DatabaseContract.CrabUpdate.EXTRA_SERVERIDCRAB, String.valueOf(crabUpdate.getServerIdCrab()))
+                                //                        .addFormDataPart(DatabaseContract.CrabUpdate.COLUMN_IDCRAB, String.valueOf(id_crab))
+                                .addFormDataPart(DatabaseContract.CrabUpdate.COLUMN_DATE, String.valueOf(crabUpdate.getDate().getTime()))
+                                .addFormDataPart(DatabaseContract.CrabUpdate.COLUMN_CRABTYPE, crabUpdate.getCrabType().name())
+                                .addFormDataPart(DatabaseContract.OnSiteUser.SERIALNUMBER, serialNumber)
+                                .addFormDataPart(DatabaseContract.CrabUpdate.EXTRA_IMAGE, crabUpdate.getPath(),
+                                        RequestBody.create(MEDIA_TYPE_JPEG, byteArray))
+                                .build();
+
+                Request request = new Request.Builder()
+                        .url(RemoteServer.buildInsertCrabUpdateUri(getIpAddress()))
+                        .post(requestBody)
+                        .build();
+
+                try {
+                    Response response = okHttpClient.newCall(request).execute();
+                    return response.body().string();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            return null;
+        }
+
+        @Override
+        protected void onProgressUpdate(Void... values) {
+            super.onProgressUpdate(values);
+            showProgressDialog();
+        }
+
+        @Override
+        protected void onPostExecute(String s) {
+            super.onPostExecute(s);
+            Log.i("crabupdateresult", "results are " + s);
+            try {
+                Long serverIdCrabUpdate = Long.parseLong(s);
+                if(new DatabaseHelper(getActivity()).updateServerIdCrabUpdate(crabUpdate.getId(), serverIdCrabUpdate)){
+                    Snackbar.make(buttonTakePicture, "Success! Update " + crabUpdate.getId() + " has been synced.", Snackbar.LENGTH_SHORT).show();
+                }else{
+                    Snackbar.make(buttonTakePicture, "Something went wrong during local database update, please try again.", Snackbar.LENGTH_SHORT).show();
+                }
+            }catch(NumberFormatException ex){
+                Snackbar.make(buttonTakePicture, "Something went wrong. Please try again.", Snackbar.LENGTH_SHORT).show();
+            }
+
+            progressDialog.dismiss();
+        }
+    }
+
+    ProgressDialog progressDialog;
+
+    public void showProgressDialog(){
+        progressDialog = ProgressDialog.show(getActivity(), "Uploading",
+                "Sending crab update to server. You can sync this later. Tap anywhere to dismiss.", true, true);
+    }
+
+    public  String getIpAddress(){
+        return getActivity().getSharedPreferences(SharedPreferencesFile.SP_NAME, getActivity().MODE_PRIVATE)
+                .getString(SharedPreferencesFile.ATTRIBUTE_IPADDRESS, null);
     }
 }
