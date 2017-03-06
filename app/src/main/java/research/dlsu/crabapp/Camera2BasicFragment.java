@@ -51,10 +51,10 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.HandlerThread;
-import android.provider.ContactsContract;
 import android.support.annotation.NonNull;
 import android.support.design.widget.Snackbar;
 import android.support.v13.app.FragmentCompat;
+import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.DialogFragment;
 import android.support.v4.app.Fragment;
 import android.support.v4.content.ContextCompat;
@@ -585,12 +585,26 @@ public class Camera2BasicFragment extends Fragment
 //                    REQUEST_CAMERA_PERMISSION);
 //        }
 
-        new ConfirmationDialog().show(getChildFragmentManager(), FRAGMENT_DIALOG);
+        // new ConfirmationDialog().show(getChildFragmentManager(), FRAGMENT_DIALOG);
         //}else{
-        requestPermissions(
-                new String[]{android.Manifest.permission.CAMERA, Manifest.permission.WRITE_EXTERNAL_STORAGE},
-                REQUEST_PERMISSION_CAMERA_STORAGE);
-        //}
+
+        ArrayList<String> permissions = new ArrayList<String>();
+
+        if(ActivityCompat.checkSelfPermission(getActivity(), Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED){
+            permissions.add(Manifest.permission.CAMERA);
+        }
+
+        if(ActivityCompat.checkSelfPermission(getActivity(), Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED){
+            permissions.add(Manifest.permission.WRITE_EXTERNAL_STORAGE);
+        }
+
+        if(!permissions.isEmpty()) {
+            String[] p = new String[permissions.size()];
+            p = permissions.toArray(p);
+            requestPermissions(
+                    p,
+                    REQUEST_PERMISSION_CAMERA_STORAGE);
+        }
     }
 
     @Override
@@ -600,10 +614,10 @@ public class Camera2BasicFragment extends Fragment
             if (grantResults.length < 1 || grantResults[0] != PackageManager.PERMISSION_GRANTED) {
                 ErrorDialog.newInstance("We need to use the camera and the file storage for the app to work.")
                         .show(getChildFragmentManager(), FRAGMENT_DIALOG);
+            }else {
+                Snackbar.make(mTextureView, "Thank you. You may now use the app.", Snackbar.LENGTH_SHORT).show();
+                super.onRequestPermissionsResult(requestCode, permissions, grantResults);
             }
-        } else {
-            Snackbar.make(mTextureView, "Thank you. You may now use the app.", Snackbar.LENGTH_SHORT).show();
-            super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         }
     }
 
@@ -1168,7 +1182,7 @@ public class Camera2BasicFragment extends Fragment
                     .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
                         @Override
                         public void onClick(DialogInterface dialogInterface, int i) {
-                            activity.finish();
+                            // activity.finish();
                         }
                     })
                     .create();
