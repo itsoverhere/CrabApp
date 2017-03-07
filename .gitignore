@@ -5,3 +5,22 @@
 .DS_Store
 /build
 /captures
+
+# generated files
+bin/
+gen/
+
+# Ignore gradle files
+.gradle/
+build/
+
+
+# Java class files
+*.class
+
+
+# Mac OS X clutter
+*.DS_Store
+
+# Windows clutter
+Thumbs.db
